@@ -9,7 +9,7 @@ import collections
 import requests
 
 
-Zelda = collections.namedtuple('Zelda', ['path', 'title', 'content', 'size'])
+Zelda = collections.namedtuple('Zelda', ['path', 'title', 'content', 'size', 'time'])
 
 
 class RedditFS(fuse.Operations):
@@ -50,9 +50,9 @@ class RedditFS(fuse.Operations):
 		return {
 			'st_size': zelda.size,
 			'st_nlink': 1,
-			'st_ctime': time.time(),
-			'st_mtime': time.time(),
-			'st_atime': time.time(),
+			'st_ctime': zelda.time,
+			'st_mtime': zelda.time,
+			'st_atime': zelda.time,
 			'st_mode': stat.S_IFREG | RedditFS.PERMS,
 		}			
 
@@ -83,6 +83,7 @@ class RedditFS(fuse.Operations):
 			title=title,
 			content=permalink,
 			size=len(permalink),
+			time=link['created_utc'],
 		)
 
 	def _get_zelda(self, path):
