@@ -141,12 +141,10 @@ class RedditFS(fuse.Operations):
 			(' ', '_'),
 			("'", ''),
 			('"', ''),
-			('.', ''),
-			('', ''),
 		)
 		for r in replace:
 			path = path.replace(*r)
-		return path
+		return path.lower()
 
 
 def main():
