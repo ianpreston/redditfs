@@ -4,7 +4,7 @@ Everything is better in an 80x25 green-and-black terminal -- even Reddit! `reddi
 
 ## Example
 
-    $ ls -l /reddit
+    $ ls -l /r/programming
     total 0
     dr-xr-xr-x@ 3 root  wheel  0 Jan 16 10:30 ANN:_pandas_0130_released
     dr-xr-xr-x@ 3 root  wheel  0 Jan 18 13:08 An_evaluation_of_simple_Python_performance_tweaks
@@ -13,16 +13,16 @@ Everything is better in an 80x25 green-and-black terminal -- even Reddit! `reddi
     dr-xr-xr-x@ 3 root  wheel  0 Jan 16 20:06 Beginner:_Getting_Beyond_Syntax
     dr-xr-xr-x@ 3 root  wheel  0 Jan 18 00:53 Best_Questions_to_ask_when_hiring_a_Python_dev?
     ...
-    $ ls -l /reddit/An_evaluation_of_simple_Python_performance_tweaks
+    $ ls -l /r/programming/An_evaluation_of_simple_Python_performance_tweaks
     total 16
     -r--r--r--@ 1 root  wheel  97 Jan 18 13:08 permalink
     -r--r--r--@ 1 root  wheel   0 Jan 18 13:08 selftext
     -r--r--r--@ 1 root  wheel  72 Jan 18 13:08 url
-    $ cat /reddit/Best_Questions_to_ask_when_hiring_a_Python_dev?/selftext
+    $ cat /r/programming/Best_Questions_to_ask_when_hiring_a_Python_dev?/selftext
     I'm a long time C/C++/C# dev who is now diving into python head on, and using it
      on a project here in Seattle.  Part of this is I need to grow my team and hire 
     ...
-    $ lynx $(cat /reddit/An_evaluation_of_simple_Python_performance_tweaks/url)
+    $ lynx $(cat /r/programming/An_evaluation_of_simple_Python_performance_tweaks/url)
     
 ## Howto
 
@@ -31,8 +31,8 @@ You'll need python 2.7 and FUSE.
     $ git clone https://github.com/ianpreston/redditfs.git
     $ virtualenv env && source env/bin/activate
     $ pip install -r reqs.txt
-    $ mkdir /reddit
-    $ python redditfs.py /reddit programming
+    $ mkdir /r
+    $ python redditfs.py /r
     
 ## License
 

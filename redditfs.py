@@ -14,12 +14,9 @@ class RedditFS(fuse.Operations):
 	PERMS = stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
 	DIR_PERMS = stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
 
-	def __init__(self, subreddit):
-		self.subreddit = subreddit
+	def __init__(self):
 		self.fd = 0
-
 		self.fs = FSDirectory('/', RedditFS.PERMS | RedditFS.DIR_PERMS, time.time())
-		self._populate_fs()
 
 	@property
 	def dirlist(self):
@@ -67,23 +64,36 @@ class RedditFS(fuse.Operations):
 		for fn in path.split('/'):
 			if not obj.dir():
 				return None
-			if not obj.get_child(fn):
+			if obj.get_child(fn) is None and obj == self.fs:
+				# Special case - all directories under the root are lazy-
+				# loaded subreddits. Pull down the one requested.
+				return self._populate_subreddit(fn.lower())
+			if obj.get_child(fn) is None:
 				return None
 
 			obj = obj.get_child(fn)
 
 		return obj
 
-	def _populate_fs(self):
+	def _populate_subreddit(self, subreddit):
 		# TODO Some sort of cache invalidation
-		r = requests.get('http://api.reddit.com/r/{}/hot'.format(self.subreddit))
+		r = requests.get('http://api.reddit.com/r/{}/hot'.format(subreddit))
 		r.raise_for_status()
-
 		links = [link['data'] for link in r.json()['data']['children']]
-		for zelda in links:
-			self._add_reddit_link_to_fs(zelda)
 
-	def _add_reddit_link_to_fs(self, zelda):
+		root_file = FSDirectory(
+			filename=subreddit,
+			mode=RedditFS.PERMS | RedditFS.PERMS,
+			ctime=time.time(),
+		)
+
+		for zelda in links:
+			self._add_reddit_link_to_fs(root_file, zelda)
+		self.fs.add_child(root_file)
+
+		return root_file
+
+	def _add_reddit_link_to_fs(self, fs, zelda):
 		title    = zelda['title']
 		filename = self._sanitize_path(title)
 
@@ -123,7 +133,7 @@ class RedditFS(fuse.Operations):
 
 		for f in (permalink_file, url_file, selftext_file):
 			root_file.add_child(f)
-		self.fs.add_child(root_file)
+		fs.add_child(root_file)
 
 	def _sanitize_path(self, path):
 		replace = (
@@ -140,7 +150,7 @@ class RedditFS(fuse.Operations):
 
 
 def main():
-	fuse.FUSE(RedditFS(sys.argv[2]), sys.argv[1], foreground=True)
+	fuse.FUSE(RedditFS(), sys.argv[1], foreground=True)
 
 
 if __name__ == '__main__':
