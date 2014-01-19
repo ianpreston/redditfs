@@ -1,26 +1,25 @@
 import fuse
 import errno
 import stat
-import StringIO
 import time
 import sys
 import urlparse
 import collections
 import requests
-
-
-Zelda = collections.namedtuple('Zelda', ['path', 'title', 'content', 'size', 'time'])
+import os.path
+from fsfile import *
 
 
 class RedditFS(fuse.Operations):
-	REDDIT = 'http://reddit.com/'
 	PERMS = stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
-	ROOT_PERMS = stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+	DIR_PERMS = stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
 
 	def __init__(self, subreddit):
 		self.subreddit = subreddit
 		self.fd = 0
-		self._dirlist = None
+
+		self.fs = FSDirectory('/', RedditFS.PERMS | RedditFS.DIR_PERMS, time.time())
+		self._populate_fs()
 
 	@property
 	def dirlist(self):
@@ -33,61 +32,98 @@ class RedditFS(fuse.Operations):
 		return self.fd
 
 	def getattr(self, path, fh=None):
-		if path == '/':
-			return {
-				'st_size': 0,
-				'st_nlink': len(self.dirlist),
-				'st_ctime': time.time(),
-				'st_mtime': time.time(),
-				'st_atime': time.time(),
-				'st_mode': stat.S_IFDIR | RedditFS.PERMS | RedditFS.ROOT_PERMS,
-			}
+		f = self._traverse(path)
 
-		zelda = self._get_zelda(path)
-		if zelda == None:
+		if f is None:
 			raise fuse.FuseOSError(errno.ENOENT)
 
-		return {
-			'st_size': zelda.size,
-			'st_nlink': 1,
-			'st_ctime': zelda.time,
-			'st_mtime': zelda.time,
-			'st_atime': zelda.time,
-			'st_mode': stat.S_IFREG | RedditFS.PERMS,
-		}			
+		return f.getattr()
 
 	def read(self, path, size, offset, fh):
-		zelda = self._get_zelda(path)
-		if zelda == None:
+		f = self._traverse(path)
+		if f is None:
 			raise fuse.FuseOSError(errno.ENOENT)
+		if f.dir():
+			raise fuse.FuseOSError(errno.EISDIR)
 
-		return zelda.content[offset:offset+size]
+		return f.read(size, offset)
 
 	def readdir(self, path, fh):
-		return ['.', '..'] + self.dirlist.keys()
+		f = self._traverse(path)
+		if f is None:
+			raise fuse.FuseOSError(errno.ENOENT)
+		if not f.dir():
+			raise fuse.FuseOSError(errno.ENOTDIR)
 
-	def _populate_dirlist(self):
+		return f.readdir()
+
+	def _traverse(self, path):
+		path = path.strip('/')
+
+		if path == '':
+			return self.fs
+
+		obj = self.fs
+		for fn in path.split('/'):
+			if not obj.dir():
+				return None
+			if not obj.get_child(fn):
+				return None
+
+			obj = obj.get_child(fn)
+
+		return obj
+
+	def _populate_fs(self):
 		# TODO Some sort of cache invalidation
 		r = requests.get('http://api.reddit.com/r/{}/hot'.format(self.subreddit))
 		r.raise_for_status()
 
-		links = [self._mk_zelda(link['data']) for link in r.json()['data']['children']]
-		return {l.path:l for l in links if l }
+		links = [link['data'] for link in r.json()['data']['children']]
+		for zelda in links:
+			self._add_reddit_link_to_fs(zelda)
 
-	def _mk_zelda(self, link):
-		title = link['title'].encode('ascii', errors='ignore')
-		permalink = urlparse.urljoin(RedditFS.REDDIT, link['permalink']).encode('ascii', errors='ignore')
+	def _add_reddit_link_to_fs(self, zelda):
+		title    = zelda['title']
+		filename = self._sanitize_path(title)
 
-		return Zelda(
-			path=self._sanitize_path(title),
-			title=title,
-			content=permalink,
-			size=len(permalink),
-			time=link['created_utc'],
+		permalink = urlparse.urljoin(
+			'http://www.reddit.com/',
+			zelda['permalink']
+		)
+		url = zelda['url']
+		selftext = zelda['selftext']
+
+		root_file = FSDirectory(
+			filename=filename,
+			mode=RedditFS.PERMS | RedditFS.DIR_PERMS,
+			ctime=zelda['created_utc'],
 		)
 
-	def _get_zelda(self, path):
-		return self.dirlist.get(path[1:])
+		permalink_file = FSFile(
+			filename='permalink',
+			mode=RedditFS.PERMS,
+			content=permalink,
+			ctime=zelda['created_utc'],
+		)
+
+		url_file = FSFile(
+			filename='url',
+			mode=RedditFS.PERMS,
+			content=url,
+			ctime=zelda['created_utc'],
+		)
+
+		selftext_file = FSFile(
+			filename='selftext',
+			mode=RedditFS.PERMS,
+			content=selftext,
+			ctime=zelda['created_utc'],
+		)
+
+		for f in (permalink_file, url_file, selftext_file):
+			root_file.add_child(f)
+		self.fs.add_child(root_file)
 
 	def _sanitize_path(self, path):
 		replace = (
