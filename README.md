@@ -1,6 +1,6 @@
 # redditfs
 
-Everything is better in an 80x25 green-and-black terminal -- even Reddit! `redditfs` maps a subreddit of your choice to a FUSE filesystem, so you can use your favorite shell (or GUI file browser, or SSH, or FTP) to browse Reddit.
+Everything is better in an 80x25 green-and-black terminal -- even Reddit! `redditfs` maps subreddits to a FUSE filesystem, so you can use your favorite shell (or GUI file browser, or SSH, or FTP) to browse Reddit.
 
 ## Example
 
@@ -26,10 +26,10 @@ Everything is better in an 80x25 green-and-black terminal -- even Reddit! `reddi
     
 ## Howto
 
-You'll need python 2.7 and FUSE.
+You'll need python 2.7 and FUSE. On OSX, you can get FUSE support is via [OSXFUSE](http://osxfuse.github.io/).
 
     $ git clone https://github.com/ianpreston/redditfs.git
-    $ virtualenv env && source env/bin/activate
+    $ cd redditfs && virtualenv env && source env/bin/activate
     $ pip install -r reqs.txt
     $ mkdir /r
     $ python redditfs.py /r
