@@ -77,7 +77,12 @@ class RedditFS(fuse.Operations):
 
 	def _populate_subreddit(self, subreddit):
 		# TODO Some sort of cache invalidation
-		r = requests.get('http://api.reddit.com/r/{}/hot'.format(subreddit))
+		r = requests.get(
+			'http://api.reddit.com/r/{}/hot'.format(subreddit),
+			headers={
+				'User-Agent': 'redditfs /u/evilyomiel'
+			},
+		)
 		r.raise_for_status()
 		links = [link['data'] for link in r.json()['data']['children']]
 
