@@ -6,6 +6,7 @@ import sys
 import urlparse
 import collections
 import requests
+import os
 import os.path
 from fsfile import *
 
@@ -54,27 +55,38 @@ class RedditFS(fuse.Operations):
 
         return f.readdir()
 
-    def _traverse(self, path):
-        path = path.strip('/')
+    def _traverse(self, path, parent=None):
+        if isinstance(path, basestring):
+            # Shortcut so we don't have to call _split_path() on every
+            # _traverse() call
+            path = self._split_path(path)
+        if parent is None:
+            parent = self.fs
 
-        if path == '':
-            return self.fs
+        if len(path) == 0:
+            return parent
 
-        obj = self.fs
-        for fn in path.split('/'):
-            if not obj.dir():
-                return None
-            if obj.get_child(fn) is None and obj == self.fs:
-                # Special case - all directories under the root are lazy-
-                # loaded subreddits. Pull down the one requested.
-                return self._populate_subreddit(fn.lower())
-            if obj.get_child(fn) is None:
-                return None
+        fn = path.pop(0)
+        node = parent.get_child(fn)
 
-            obj = obj.get_child(fn)
+        if node is None and parent == self.fs:
+            # Node is a direct descendant of the filesystem root. All direct
+            # descendants are subreddits, so populate this subreddit lazily
+            return self._populate_subreddit(fn)
 
-        return obj
+        if node and not node.dir():
+            # We've reached a leaf, cannot traverse any further
+            return None
 
+        return self._traverse(path, node)
+
+    def _split_path(self, path):
+        # TODO Move to a util module ?
+        head, tail = os.path.split(path)
+        if head == '' or head == os.sep:
+            return [tail]
+        return self._split_path(head) + [tail]
+     
     def _populate_subreddit(self, subreddit):
         # TODO Some sort of cache invalidation
         r = requests.get(
