@@ -11,6 +11,9 @@ import os.path
 from fsfile import *
 
 
+CACHE_TIMEOUT = 60 * 60
+
+
 class RedditFS(fuse.Operations):
     PERMS = stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
     DIR_PERMS = stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
@@ -69,10 +72,10 @@ class RedditFS(fuse.Operations):
         fn = path.pop(0)
         node = parent.get_child(fn)
 
-        if node is None and parent == self.fs:
+        if parent == self.fs:
             # Node is a direct descendant of the filesystem root. All direct
             # descendants are subreddits, so populate this subreddit lazily
-            return self._populate_subreddit(fn)
+            return self._lazy_load_subreddit(node, fn)
 
         if node and not node.dir():
             # We've reached a leaf, cannot traverse any further
@@ -83,12 +86,27 @@ class RedditFS(fuse.Operations):
     def _split_path(self, path):
         # TODO Move to a util module ?
         head, tail = os.path.split(path)
+        if tail == '':
+            return []
         if head == '' or head == os.sep:
             return [tail]
         return self._split_path(head) + [tail]
+
+    def _lazy_load_subreddit(self, node, filename):
+        # If the directory does not exist, attempt to load it
+        if node is None:
+            return self._populate_subreddit(filename)
+
+        # If the directory exists but was created more than CACHE_TIMEOUT
+        # seconds ago, re-populate the directory
+        if node.getattr().get('st_ctime') < (time.time() - CACHE_TIMEOUT):
+            self.fs.remove_child(node.filename)
+            return self._populate_subreddit(node.filename)
+
+        # The directory exists and is fresh, return it
+        return node
      
     def _populate_subreddit(self, subreddit):
-        # TODO Some sort of cache invalidation
         r = requests.get(
             'http://api.reddit.com/r/{}/hot'.format(subreddit),
             headers={
