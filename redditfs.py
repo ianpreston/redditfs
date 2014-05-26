@@ -168,7 +168,7 @@ class RedditFS(fuse.Operations):
 
 
 def main():
-    fuse.FUSE(RedditFS(), sys.argv[1], foreground=True)
+    fuse.FUSE(RedditFS(), sys.argv[1], foreground=True, nothreads=True)
 
 
 if __name__ == '__main__':
