@@ -45,6 +45,9 @@ class FSDirectory(object):
     def get_child(self, path):
         return self._children.get(path)
 
+    def remove_child(self, path):
+        del self._children[path]
+
     def getattr(self):
         return {
             'st_size': 0,
