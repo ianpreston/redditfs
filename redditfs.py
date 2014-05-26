@@ -83,7 +83,10 @@ class RedditFS(fuse.Operations):
                 'User-Agent': 'redditfs /u/evilyomiel'
             },
         )
+        if r.status_code == 404:
+            return
         r.raise_for_status()
+
         links = [link['data'] for link in r.json()['data']['children']]
 
         root_file = FSDirectory(
