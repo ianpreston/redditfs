@@ -20,7 +20,12 @@ class RedditFS(fuse.Operations):
 
     def __init__(self):
         self.fd = 0
-        self.fs = FSDirectory('/', RedditFS.PERMS | RedditFS.DIR_PERMS, time.time())
+        self.fs = FSDirectory(
+            '/',
+            DirectoryType.root,
+            RedditFS.PERMS | RedditFS.DIR_PERMS,
+            time.time(),
+        )
 
     @property
     def dirlist(self):
@@ -33,7 +38,7 @@ class RedditFS(fuse.Operations):
         return self.fd
 
     def getattr(self, path, fh=None):
-        f = self._traverse(path)
+        f = self.traverse(path)
 
         if f is None:
             raise fuse.FuseOSError(errno.ENOENT)
@@ -41,7 +46,7 @@ class RedditFS(fuse.Operations):
         return f.getattr()
 
     def read(self, path, size, offset, fh):
-        f = self._traverse(path)
+        f = self.traverse(path)
         if f is None:
             raise fuse.FuseOSError(errno.ENOENT)
         if f.dir():
@@ -50,7 +55,7 @@ class RedditFS(fuse.Operations):
         return f.read(size, offset)
 
     def readdir(self, path, fh):
-        f = self._traverse(path)
+        f = self.traverse(path)
         if f is None:
             raise fuse.FuseOSError(errno.ENOENT)
         if not f.dir():
@@ -58,30 +63,22 @@ class RedditFS(fuse.Operations):
 
         return f.readdir()
 
-    def _traverse(self, path, parent=None):
-        if isinstance(path, basestring):
-            # Shortcut so we don't have to call _split_path() on every
-            # _traverse() call
-            path = self._split_path(path)
-        if parent is None:
-            parent = self.fs
+    def traverse(self, path):
+        path = self._split_path(path)
+        node = self.fs
+        return self._traverse(path, node)
 
+    def _traverse(self, path, node):
         if len(path) == 0:
-            return parent
+            return node
 
         fn = path.pop(0)
-        node = parent.get_child(fn)
+        next_node = node.get_child(fn)
 
-        if parent == self.fs:
-            # Node is a direct descendant of the filesystem root. All direct
-            # descendants are subreddits, so populate this subreddit lazily
-            return self._lazy_load_subreddit(node, fn)
+        if node.dirtype == DirectoryType.root:
+            self._lazy_load_subreddit(next_node, fn)
 
-        if node and not node.dir():
-            # We've reached a leaf, cannot traverse any further
-            return None
-
-        return self._traverse(path, node)
+        return self._traverse(path, next_node)
 
     def _split_path(self, path):
         # TODO Move to a util module ?
@@ -121,6 +118,7 @@ class RedditFS(fuse.Operations):
 
         root_file = FSDirectory(
             filename=subreddit,
+            dirtype=DirectoryType.subreddit,
             mode=RedditFS.PERMS | RedditFS.PERMS,
             ctime=time.time(),
         )
@@ -144,6 +142,7 @@ class RedditFS(fuse.Operations):
 
         root_file = FSDirectory(
             filename=filename,
+            dirtype=DirectoryType.normal,
             mode=RedditFS.PERMS | RedditFS.DIR_PERMS,
             ctime=zelda['created_utc'],
         )

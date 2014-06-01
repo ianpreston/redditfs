@@ -2,6 +2,11 @@ import fuse
 import errno
 import stat
 import time
+import enum
+
+
+DirectoryType = enum.Enum('DirectoryType', 'root normal subreddit')
+
 
 class FSFile(object):
     BASE_MODE = stat.S_IFREG
@@ -33,8 +38,9 @@ class FSFile(object):
 class FSDirectory(object):
     BASE_MODE = stat.S_IFDIR
 
-    def __init__(self, filename, mode, ctime):
+    def __init__(self, filename, dirtype, mode, ctime):
         self.filename  = filename
+        self.dirtype   = dirtype
         self._mode     = FSDirectory.BASE_MODE | mode
         self._time     = ctime
         self._children = {}
