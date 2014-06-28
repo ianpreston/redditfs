@@ -102,15 +102,16 @@ class RedditFS(fuse.Operations):
 
         # The directory exists and is fresh, return it
         return node
-     
+
     def _populate_subreddit(self, subreddit):
         r = requests.get(
             'http://api.reddit.com/r/{}/hot'.format(subreddit),
             headers={
                 'User-Agent': 'redditfs /u/evilyomiel'
             },
+            allow_redirects=False,
         )
-        if r.status_code == 404:
+        if r.status_code in [404, 302]:
             return
         r.raise_for_status()
 
