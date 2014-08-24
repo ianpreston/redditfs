@@ -3,12 +3,15 @@ import errno
 import stat
 import time
 import sys
-import urlparse
-import collections
 import requests
 import os
 import os.path
 from fsfile import *
+
+try:
+    import urlparse
+except ImportError:
+    import urllib.parse as urlparse
 
 
 CACHE_TIMEOUT = 60 * 60

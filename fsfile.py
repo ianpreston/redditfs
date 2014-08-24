@@ -1,7 +1,4 @@
-import fuse
-import errno
 import stat
-import time
 import enum
 
 
@@ -65,7 +62,7 @@ class FSDirectory(object):
         }
 
     def readdir(self):
-        return ['.', '..'] + self._children.keys()
+        return ['.', '..'] + list(self._children.keys())
 
     def dir(self):
         return True
