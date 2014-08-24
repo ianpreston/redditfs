@@ -26,7 +26,7 @@ Everything is better in an 80x25 green-and-black terminal -- even Reddit! `reddi
     
 ## Howto
 
-You'll need python 2.7 and FUSE. On OSX, you can get FUSE support via [OSXFUSE](http://osxfuse.github.io/).
+You'll need Python >= 2.7 or >= 3.4, and FUSE. You can install FUSE via the package managers on most Linux distros. On OSX, you can get FUSE support via [OSXFUSE](http://osxfuse.github.io/).
 
     $ git clone https://github.com/ianpreston/redditfs.git
     $ cd redditfs && virtualenv env && source env/bin/activate
